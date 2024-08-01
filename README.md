@@ -14,6 +14,8 @@ The Global Energy Monitor (GEM) reports annual, facility-level employment3. We c
 The Facility Level Information on Greenhouse Gases Tool (FLIGHT) from the U.S. Environmental Protection Agency (EPA) supplements plant identification by providing additional information on emissions, fuel types, and locations of iron and steel mill plants. 
 Each dataset offers unique insights, with the USGS, BLS, and GEM datasets reported at the national-, regional-, and plant-levels, respectively. By combining these datasets, we better triangulate employment in the U.S. iron and steel industry, and in part address some of the limitations of each dataset (e.g., missing and reported data). To ensure the accuracy and consistency of our data, we compare the employment and activity data across datasets. We find that national steel capacity based on the GEM dataset is approximately 7% higher than those from USGS, despite GEM excluding smaller steel mills.
 
+![annual steel employemnt](./fig/lab_usgs_compare.png)
+*Comparison of annual employment from 1998 to 2022 reported by USGS and BLS. Each point represents reported employment data, and the blue line and shaded region are the mean and standard deviation based on simple linear regression (a). The dotted line is the identity line. The  red and blue lines represent BLS and USGS data, respectively (b).*
 
 
 
