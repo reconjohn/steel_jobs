@@ -1,0 +1,166 @@
+# Steel mills in DAC
+source("./syntax/data.R")
+
+# DAC data
+DAC <- read_csv("https://github.com/reconjohn/disadvantaged_communities/raw/main/results/DAC_s.csv") %>% 
+  dplyr::select(-LIFEEXPPCT:-D5_PWDIS)
+
+
+# flight + GEM
+data_f <- read_csv("./data/steel_iron_facility.csv") %>% 
+  st_as_sf(coords = c("Long", "Lat"), crs = 4269,
+           agr = "constant",
+           stringsAsFactors = FALSE,
+           remove = TRUE) %>% 
+  mutate(Type = ifelse(Product == "BF-BOF", "BF_I", 
+                       ifelse(Product %in% c("Coke","Ore"), "Others", 
+                              Product))) 
+
+
+fd <- data_f %>% 
+  
+  st_join(tr.sf %>% 
+            rename(GEOID = FIPS) %>% 
+            dplyr::select(GEOID) %>% 
+            inner_join(DAC, by = "GEOID"))
+  
+# write_csv(fd, "./data/dac_steel.csv")
+
+
+dac_steel <- fd %>% 
+  filter(!Product %in% c("Coke", "Ore")) %>% 
+  ggplot() +
+  geom_sf(data = st, fill = "gray95", color = "gray60", size = 0.1) +
+  geom_sf(alpha = 0.5, aes(shape = disadvantaged, fill = DACSCORE)) +
+  scale_shape_manual(values=c(21, 24))+
+  scale_fill_gradient(low = "green", high = "red", na.value = NA) + 
+  labs(title = "Plants in Disadvantaged Communities with DAC scores", 
+       fill = "DAC score", shape = "Disadvantaged") +
+  theme_minimal() +
+  coord_sf(crs = st_crs(2163), xlim = c(-2500000, 2700000), 
+           ylim = c(-2300000,730000), expand = FALSE, datum = NA) 
+
+ggsave("./fig/dac_steel.png", dac_steel, width = 10, height = 6)
+
+library(mapview)
+fd %>% 
+  filter(!Product %in% c("Coke", "Ore")) %>% 
+  mapview(zcol = "DAC")
+
+
+### chart
+group <- c("BOF", "EAF")
+data <- data.frame()
+for(i in 1:2){
+  dat <- DAC %>%
+    dplyr::select(-PEOPCOLORPCT:-OVER64PCT,-DACSCORE) %>% 
+    
+      left_join(fd[1:13] %>%
+                  st_drop_geometry() %>%
+                  filter(!is.na(`Capacity Steel (million metric ton)`)) %>% 
+                  filter(Product == group[i]) %>%
+                  group_by(GEOID) %>%
+                  summarise(MMT = sum(`Capacity Steel (million metric ton)`)), by = "GEOID") %>%
+    mutate_at(c("MMT"), ~replace_na(.,0))  # replace NA with 0
+  
+  
+  da <- data.frame()
+  for(j in 2:(length(colnames(dat))-1)){
+    d <- dat %>%
+      group_by(get(colnames(dat)[j])) %>%
+      summarise(value = sum(MMT)) %>%
+      mutate(sum = sum(value),
+             perc = value/sum*100)
+    
+    d<- d[2,]
+    
+    da <- rbind(d,da)
+    
+  }
+  
+  da <- da %>%
+    cbind(data.frame(var = rev(colnames(dat))[c(-1,-32)])) %>%
+    mutate(type = group[i])
+  
+  data <- rbind(da, data)
+  
+}
+
+
+lab <- c("Workforce","Health", "Waste\nwater", "Pollution",
+         "Housing", "Transpor\ntation", "Energy", "Climate")
+
+
+jst <- data %>% 
+  mutate(var = factor(var, levels = nm),
+         
+         # type = str_replace_all(type, 
+         #                        c("Natural Gas" = "NG",
+         #                          "Combustion Turbine" = "CT",
+         #                          "Internal Combustion" = "IC",
+         #                          "Steam Turbine" = "ST",
+         #                          "Combined Cycle" = "CC")),
+         
+         class = ifelse(var == nm[1], "total",
+                        ifelse(var %in% nm[27:30], "education", "income")),
+         cat = ifelse(var == nm[1], "Community",
+                      ifelse(var %in% nm[2:6], lab[8], 
+                             ifelse(var %in% nm[7:8], lab[7],
+                                    ifelse(var %in% nm[9:11], lab[6],
+                                           ifelse(var %in% nm[12:15], lab[5],
+                                                  ifelse(var %in% nm[16:20], lab[4],
+                                                         ifelse(var %in% nm[21:22], lab[3],
+                                                                ifelse(var %in% nm[23:26], lab[2], lab[1])))))))),
+         color = cut(perc, breaks = c(0,25,50,71), include.lowest = T),
+         tot = ifelse(class == "total", 80, 71)) 
+
+f1 <- jst %>% 
+  filter(class == "total") %>% 
+  mutate(var = "     disadvantaged",
+         cat = "Combined\ncommunity") %>% 
+  ggplot() +
+  geom_col(aes(x = tot, y = var), fill = "gray", position = "dodge", width = 0.5) +
+  geom_col(aes(x = perc, y = var),  fill = "gray20", position = "dodge", width = 0.5) +
+  
+  labs(x = "", y = "\n\n\n\n\n\n\n", fill = "") + 
+  facet_grid(type~cat+class, scales = "free", space = "free", switch = "y") +
+  geom_text(aes(x = perc-10, y = 1, label = paste0(round(perc, 0),"%")), 
+            size = 2, color = "white") +
+  
+  coord_flip() +
+
+  theme_classic() +
+  theme(legend.position = "none",
+        strip.text.y = element_text(size = 6),
+        strip.text.x = element_text(size = 6),
+        axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+
+# cols <- hue_pal()(3)
+f2 <- jst %>% 
+  filter(class != "total") %>% 
+  ggplot() +
+  geom_col(aes(x = tot, y = var), fill = "gray", position = "dodge", width = 0.95) +
+  geom_col(aes(x = perc, y = var, fill = color), position = "dodge", width = 0.95) +
+  
+  # geom_text(data = tp, aes(x = 0, y = n + 0.5, label = cat), hjust = 1) +
+  
+  labs(x = "", y = "", fill = "") + 
+  # scale_fill_manual(values = c("56%" = "gray", "Within DAC" = "red")) +
+  # scale_fill_manual(values = rev(cols)) +
+  scale_fill_viridis_d(begin = 0.2, end = 0.95) +
+  facet_grid(type ~cat+class, scales = "free", space = "free", switch = "y") +
+  
+  coord_flip() +
+  
+  theme_classic() +
+  theme(legend.position = "right",
+        strip.text.y = element_text(size = 6),
+        strip.text.x = element_text(size = 6),
+        axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+
+library(ggpubr)
+f12 <- ggarrange(f1,f2, nrow = 1, widths = c(0.2,1))
+
+ggsave("./fig/jst.png", f12, width = 8, height = 6, dpi=300)
+
+
