@@ -22,8 +22,7 @@ library(stargazer)
 sf::sf_use_s2(FALSE)
 ggsave <- function(..., bg = 'white') ggplot2::ggsave(..., bg = bg)
 
-load("./data/derived/steel_plant.RData") # final (master facility dataset)
-load("./data/derived/data.RData") # capa (national), labr (state)
+load("./data/data.RData") # capa (national), labr (state)
 load("C:/Users/yohan/Big_data/US Tract/census.Rdata") #tr.sf, st
 
 # GEM
